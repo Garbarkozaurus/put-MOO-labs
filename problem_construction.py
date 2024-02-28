@@ -20,17 +20,17 @@ def maximize_return_solver(companies: list[Company]):
     # is redundant, but it serves as a neat example of defining a cvxopt solver
     expected_returns = [-1*company.expected_return for company in companies]
     exp_ret_matrix = cvxopt.matrix(expected_returns)
-    normalization_constraint_coefs = [1.0 for _ in companies]
+    normalization_constraint_coefs = cvxopt.matrix([[1.0] for _ in companies])
     # -1, because that's how >= is expressed
-    nonnegativity_constraints_coefs = np.diagflat([-1.0 for _ in companies])
+    nonnegativity_constraints_coefs = cvxopt.matrix(np.diagflat([-1.0 for _ in companies]))
     # every row in the argument is a column in the constraint matrix
     # representing the coefficients for variables in all constraints
-    constraint_coeffs = cvxopt.matrix(
-        np.vstack((normalization_constraint_coefs,
-                   nonnegativity_constraints_coefs)))
-    # 1.0 for normalization, 0.0 for non-negativity
-    constraint_bounds = cvxopt.matrix([1.0] + [0.0] * len(companies))
-    return cvxopt.solvers.lp(exp_ret_matrix, constraint_coeffs, constraint_bounds)
+    normalization_constraint_bound = cvxopt.matrix([1.0])
+    nonnegativity_constraints_bounds = cvxopt.matrix([0.0] * len(companies))
+    return cvxopt.solvers.lp(exp_ret_matrix, nonnegativity_constraints_coefs,
+                             nonnegativity_constraints_bounds,
+                             normalization_constraint_coefs,
+                             normalization_constraint_bound)
 
 
 def covariance_matrix_from_companies(
@@ -42,8 +42,22 @@ def covariance_matrix_from_companies(
 
 
 def minimize_risk_solver(companies: list[Company]):
-    # TODO
-    pass
+    covariance_matrix = covariance_matrix_from_companies(companies)
+    risk_matrix = cvxopt.matrix(covariance_matrix)
+
+    # coefficients for the linear component of the optimized function
+    c = cvxopt.matrix([0.0 for _ in companies])
+    normalization_constraint_coefs = cvxopt.matrix([[1.0] for _ in companies])
+    # -1, because that's how >= is expressed
+    nonnegativity_constraints_coefs = cvxopt.matrix(np.diagflat([-1.0 for _ in companies]))
+    # every row in the argument is a column in the constraint matrix
+    # representing the coefficients for variables in all constraints
+    normalization_constraint_bound = cvxopt.matrix([1.0])
+    nonnegativity_constraints_bounds = cvxopt.matrix([0.0] * len(companies))
+    return cvxopt.solvers.qp(risk_matrix, c, nonnegativity_constraints_coefs,
+                             nonnegativity_constraints_bounds,
+                             normalization_constraint_coefs,
+                             normalization_constraint_bound)
 
 
 def weighted_sum_solver(
@@ -64,6 +78,7 @@ if __name__ == "__main__":
     for i, c in enumerate(companies):
         c.expected_return = (i+1)/20
     s = maximize_return_solver(companies)
+    # s = minimize_risk_solver(companies)
     print(s.keys())
     print(s["primal objective"])
     print(s["x"])
