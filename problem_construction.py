@@ -64,7 +64,6 @@ def minimize_risk_solver(companies: list[Company]):
     # coefficients for the linear component of the optimized function
     c = cvxopt.matrix([0.0 for _ in companies])
     num_companies = len(companies)
-    # nonnegativity_constraints_bounds = cvxopt.matrix([0.0] * len(companies))
     nonnegativity_constraints_coefs, nonnegativity_constraints_bounds = \
         nonnegativity_constraints_matrices(num_companies)
     normalization_constraint_coefs, normalization_constraint_bound = \
@@ -127,14 +126,55 @@ def weighted_sum_solver(
         options={"show_progress": False})
 
 
+def minimum_expected_return_constraint_matrices(
+        companies: list[Company],
+        min_ret: float) -> tuple[cvxopt.matrix]:
+    """Returns a pair of matrices:
+    - coefficients of the minimum expected return constraint
+    (a 1xn matrix of expected return values for companies multiplied by -1
+    to model >=)
+    - bounds of non-negativity constraints (the value of min_ret)
+    """
+    constraint_coefs = cvxopt.matrix([[-1.0 * company.expected_return]
+                                      for company in companies])
+    min_ret_bound = cvxopt.matrix([min_ret])
+    return constraint_coefs, min_ret_bound
+
+
+def epsilon_constrained_solver(
+        companies: list[Company],
+        min_ret: float,
+        history_len: int | None = None) -> cvxopt.solvers.qp:
+    covariance_matrix = utils.covariance_matrix_from_companies(companies, history_len)
+    risk_matrix = cvxopt.matrix(covariance_matrix)
+    # coefficients for the linear component of the optimized function
+    c = cvxopt.matrix([0.0 for _ in companies])
+    num_companies = len(companies)
+    nonnegativity_constraints_coefs, nonnegativity_constraints_bounds = \
+        nonnegativity_constraints_matrices(num_companies)
+    normalization_constraint_coefs, normalization_constraint_bound = \
+        normalization_constraint_matrices(num_companies)
+    min_ret_coefs, min_ret_bound = \
+        minimum_expected_return_constraint_matrices(companies, min_ret)
+    inequality_coefs = np.vstack((np.array(nonnegativity_constraints_coefs), min_ret_coefs))
+    inequality_bounds = np.vstack((np.array(nonnegativity_constraints_bounds), min_ret_bound))
+    inequality_coefs = cvxopt.matrix(inequality_coefs)
+    inequality_bounds = cvxopt.matrix(inequality_bounds)
+    return cvxopt.solvers.qp(
+        risk_matrix, c,
+        inequality_coefs, inequality_bounds,
+        normalization_constraint_coefs, normalization_constraint_bound,
+        options={"show_progress": False})
+
+
 if __name__ == "__main__":
-    EXPECTED_RETURN_WEIGHT = 1.0
+    EXPECTED_RETURN_WEIGHT = 0.0
     RISK_WEIGHT = 1.0 - EXPECTED_RETURN_WEIGHT
     companies = data_loading.load_all_companies_from_dir("./data/Bundle1")
     for i, c in enumerate(companies):
         c.expected_return = (i+1)/20
-    s = maximize_return_solver(companies)
-    # s = minimize_risk_solver(companies)
+    # s = maximize_return_solver(companies)
+    s = minimize_risk_solver(companies)
     # print(s.keys())
     # print(s["x"])
     # print(s["primal objective"])
@@ -146,3 +186,13 @@ if __name__ == "__main__":
     weights = w_s["x"]
     risk = utils.portfolio_risk(companies, weights)
     exp_ret = utils.portfolio_expected_return(companies, weights)
+    print(exp_ret, risk)
+
+    e_c = epsilon_constrained_solver(
+        companies, 0.95)
+    e_weights = e_c["x"]
+    risk = utils.portfolio_risk(companies, e_weights)
+    exp_ret = utils.portfolio_expected_return(companies, e_weights)
+    print(f"{e_c['primal objective']=}")
+    print(exp_ret, risk)
+    # print(e_c["x"])
