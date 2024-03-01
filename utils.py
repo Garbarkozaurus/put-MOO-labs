@@ -37,6 +37,6 @@ def portfolio_risk(
         weights: Iterable[float],
         history_len: int | None = None) -> float:
     weight_array = np.array(weights)
-    cov_matrix = covariance_matrix_from_companies(companies)
+    cov_matrix = covariance_matrix_from_companies(companies, history_len)
     # multiplied by 0.5 for consistency with solver values
-    return 0.5 * weight_array.T @ cov_matrix @ weight_array
+    return 0.5 * float(weight_array.T @ cov_matrix @ weight_array)
