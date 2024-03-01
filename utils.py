@@ -40,3 +40,22 @@ def portfolio_risk(
     cov_matrix = covariance_matrix_from_companies(companies, history_len)
     # multiplied by 0.5 for consistency with solver values
     return 0.5 * float(weight_array.T @ cov_matrix @ weight_array)
+
+
+COMPANY_ORDER = [
+    "SuperFuture", "Apples", "WorldNow", "Electronics123", "Photons",
+    "SpaceNow", "PearPear", "PositiveCorrelation", "BetterTechnology",
+    "ABCDE", "EnviroLike", "Moneymakers", "Fuel4", "MarsProject", "CPU-XYZ",
+    "RoboticsX", "Lasers", "WaterForce", "SafeAndCare", "BetterTomorrow"]
+
+
+def weights_in_valid_order(companies: list[Company],
+                           weights: Iterable[float]) -> list[float]:
+    """USE WITH CARE
+    Creates a new list with the order of weight corresponding to the one given
+    in the portfolio problem description"""
+    weight_dict = dict(zip([c.name for c in companies], weights))
+    new_weights = weights[:]
+    for i, target_company in enumerate(COMPANY_ORDER):
+        new_weights[i] = weight_dict[target_company]
+    return new_weights
