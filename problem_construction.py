@@ -55,7 +55,7 @@ def maximize_return_solver(companies: list[Company]):
                              nonnegativity_constraints_bounds,
                              normalization_constraint_coefs,
                              normalization_constraint_bound,
-                             options={'show_progress': False})
+                             options={"show_progress": False})
 
 
 def minimize_risk_solver(companies: list[Company]):
@@ -73,7 +73,7 @@ def minimize_risk_solver(companies: list[Company]):
                              nonnegativity_constraints_bounds,
                              normalization_constraint_coefs,
                              normalization_constraint_bound,
-                             options={'show_progress': False})
+                             options={"show_progress": False})
 
 
 def exp_ret_risk_spreads(
@@ -124,7 +124,7 @@ def weighted_sum_solver(
         risk_matrix, exp_ret_matrix,
         nonnegativity_constraints_coefs, nonnegativity_constraints_bounds,
         normalization_constraint_coefs, normalization_constraint_bound,
-        options={'show_progress': False})
+        options={"show_progress": False})
 
 
 if __name__ == "__main__":
