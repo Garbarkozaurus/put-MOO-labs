@@ -33,18 +33,9 @@ def maximize_return_solver(companies: list[Company]):
                              normalization_constraint_bound)
 
 
-def covariance_matrix_from_companies(
-        companies: list[Company],
-        history_len: int | None = None) -> np.ndarray[np.float64]:
-    price_matrix = utils.company_list_to_price_matrix(companies, history_len)
-    # keep the np.corrcoef() alternative in mind!
-    return np.cov(price_matrix)
-
-
 def minimize_risk_solver(companies: list[Company]):
-    covariance_matrix = covariance_matrix_from_companies(companies)
+    covariance_matrix = utils.covariance_matrix_from_companies(companies)
     risk_matrix = cvxopt.matrix(covariance_matrix)
-
     # coefficients for the linear component of the optimized function
     c = cvxopt.matrix([0.0 for _ in companies])
     normalization_constraint_coefs = cvxopt.matrix([[1.0] for _ in companies])
