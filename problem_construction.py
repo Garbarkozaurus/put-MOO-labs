@@ -133,11 +133,13 @@ def minimum_expected_return_constraint_matrices(
     - coefficients of the minimum expected return constraint
     (a 1xn matrix of expected return values for companies multiplied by -1
     to model >=)
-    - bounds of non-negativity constraints (the value of min_ret)
+    - bounds of non-negativity constraints (the value of min_ret
+    multiplied by -1)
     """
+    # I don't understand why both sides must be multiplied by -1
     constraint_coefs = cvxopt.matrix([[-1.0 * company.expected_return]
                                       for company in companies])
-    min_ret_bound = cvxopt.matrix([min_ret])
+    min_ret_bound = cvxopt.matrix([-1.0 * min_ret])
     return constraint_coefs, min_ret_bound
 
 
@@ -170,6 +172,7 @@ def epsilon_constrained_solver(
 if __name__ == "__main__":
     EXPECTED_RETURN_WEIGHT = 0.0
     RISK_WEIGHT = 1.0 - EXPECTED_RETURN_WEIGHT
+    MIN_RETURN_THRESHOLD = 0.8
     companies = data_loading.load_all_companies_from_dir("./data/Bundle1")
     for i, c in enumerate(companies):
         c.expected_return = (i+1)/20
@@ -186,13 +189,13 @@ if __name__ == "__main__":
     weights = w_s["x"]
     risk = utils.portfolio_risk(companies, weights)
     exp_ret = utils.portfolio_expected_return(companies, weights)
+    print(f"{w_s['primal objective']=}")
     print(exp_ret, risk)
 
     e_c = epsilon_constrained_solver(
-        companies, 0.95)
+        companies, MIN_RETURN_THRESHOLD)
     e_weights = e_c["x"]
     risk = utils.portfolio_risk(companies, e_weights)
     exp_ret = utils.portfolio_expected_return(companies, e_weights)
     print(f"{e_c['primal objective']=}")
     print(exp_ret, risk)
-    # print(e_c["x"])
