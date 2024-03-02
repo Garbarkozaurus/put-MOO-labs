@@ -58,8 +58,9 @@ def maximize_return_solver(companies: list[Company]):
                              options={"show_progress": False})
 
 
-def minimize_risk_solver(companies: list[Company]):
-    covariance_matrix = utils.covariance_matrix_from_companies(companies)
+def minimize_risk_solver(companies: list[Company],
+                         history_len: int | None = None):
+    covariance_matrix = utils.covariance_matrix_from_companies(companies, history_len)
     risk_matrix = cvxopt.matrix(covariance_matrix)
     # coefficients for the linear component of the optimized function
     c = cvxopt.matrix([0.0 for _ in companies])
