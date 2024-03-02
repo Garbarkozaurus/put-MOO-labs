@@ -54,7 +54,7 @@ def uniformly_search_threshold_space(
     max_ret = utils.portfolio_expected_return(companies, max_ret_solution["x"])
     min_risk_solution = problem_construction.minimize_risk_solver(companies, history_len)
     solutions = [(0.0, min_risk_solution)]
-    for i in range(num_thresholds):
+    for i in range(num_thresholds-1):
         minimum_return = (i+1)*(max_ret) / num_thresholds
         solution = problem_construction.epsilon_constrained_solver(
             companies, minimum_return, history_len)
