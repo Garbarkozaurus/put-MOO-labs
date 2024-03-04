@@ -51,14 +51,18 @@ def uniformly_search_threshold_space(
         company.expected_return, _ = return_estimation.predict_expected_return_linear_regression(
             company, prediction_time, fitting_timeline_start)
     max_ret_solution = problem_construction.maximize_return_solver(companies)
-    max_ret = utils.portfolio_expected_return(companies, max_ret_solution["x"])
+    max_ret = utils.portfolio_expected_return(companies, max_ret_solution['x'])
     min_risk_solution = problem_construction.minimize_risk_solver(companies, history_len)
+    min_risk_ret = utils.portfolio_expected_return(companies, min_risk_solution['x'])
     solutions = [(0.0, min_risk_solution)]
-    for i in range(num_thresholds-1):
-        minimum_return = (i+1)*(max_ret) / num_thresholds
+    step_size = (max_ret - min_risk_ret) / num_thresholds
+    minimum_return = min_risk_ret
+    for _ in range(num_thresholds-1):
+        # minimum_return = (i+1)*(max_ret) / num_thresholds
         solution = problem_construction.epsilon_constrained_solver(
             companies, minimum_return, history_len)
         solutions.append((minimum_return, solution))
+        minimum_return += step_size
     solutions.append((max_ret, max_ret_solution))
     return solutions
 
