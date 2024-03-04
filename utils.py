@@ -59,3 +59,14 @@ def weights_in_valid_order(companies: list[Company],
     for i, target_company in enumerate(COMPANY_ORDER):
         new_weights[i] = weight_dict[target_company]
     return new_weights
+
+
+def export_front_to_file(companies: list[Company],
+                         solutions: list[dict], export_path: str,
+                         history_len: int | None = None) -> None:
+    with open(export_path, "w+") as fp:
+        for solution in solutions:
+            weights = solution['x']
+            expected_return = portfolio_expected_return(companies, weights)
+            risk = portfolio_risk(companies, weights, history_len)
+            fp.write(f"{expected_return} {risk}\n")
