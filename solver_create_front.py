@@ -70,12 +70,14 @@ def uniformly_search_threshold_space(
 def plot_front(companies: list[Company],
                solutions: list[tuple[dict, dict]],
                history_len: int | None = None,
-               title: str = "") -> None:
+               title: str = "",
+               export_pdf: bool = False,
+               pdf_title: str = "front.pdf") -> None:
     plot_points = []
     returns = []
     risks = []
     label_font = {'fontname': 'Times New Roman'}
-    for weight_dict, sol in solutions:
+    for _, sol in solutions:
         exp_ret = utils.portfolio_expected_return(companies, sol["x"])
         risk = utils.portfolio_risk(companies, sol["x"], history_len)
         plot_points.append((exp_ret, risk))
@@ -87,12 +89,14 @@ def plot_front(companies: list[Company],
     plt.ylabel("Risk [$ \$^2 $] ", **label_font)
     plt.grid()
     plt.title(title, **label_font)
+    if export_pdf:
+        plt.savefig(pdf_title, format="pdf")
     plt.show()
 
 
 if __name__ == "__main__":
     companies = data_loading.load_all_companies_from_dir("./data/Bundle1")
-    weighted_sum_solutions = uniformly_search_weight_space(companies, 20, 200)
+    weighted_sum_solutions = uniformly_search_weight_space(companies, 100, 200)
     plot_front(companies, weighted_sum_solutions, title="Weighted sum")
-    epsilon_solutions = uniformly_search_threshold_space(companies, 20, 200)
+    epsilon_solutions = uniformly_search_threshold_space(companies, 100, 200)
     plot_front(companies, epsilon_solutions, title="Epsilon constrained")
