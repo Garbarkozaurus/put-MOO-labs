@@ -49,6 +49,16 @@ def SBX_portfolios(weights1: Iterable[float], weights2: Iterable[float],
     offspring2 = offspring2 / np.sum(offspring2)
     return offspring1, offspring2
 
+# A conscious decision was made not to implement a mutation operator
+
+
+def random_portfolio_population(
+        num_variables: int, population_size: int) -> np.ndarray[np.float32]:
+    members = np.random.random(size=(population_size, num_variables))
+    for row in members:
+        row /= np.sum(row)
+    return members
+
 
 if __name__ == "__main__":
     plot_SBX_distribution(0.2, 0.8, 10, 1000)
