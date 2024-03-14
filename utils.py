@@ -42,6 +42,11 @@ def portfolio_risk(
     return 0.5 * float(weight_array.T @ cov_matrix @ weight_array)
 
 
+def portfolio_num_included_companies(
+        weights: Iterable[float], inclusion_threshold: float = 1e-5) -> int:
+    return np.count_nonzero(np.array(weights) >= inclusion_threshold)
+
+
 COMPANY_ORDER = [
     "SuperFuture", "Apples", "WorldNow", "Electronics123", "Photons",
     "SpaceNow", "PearPear", "PositiveCorrelation", "BetterTechnology",
