@@ -49,7 +49,18 @@ def SBX_portfolios(weights1: Iterable[float], weights2: Iterable[float],
     offspring2 = offspring2 / np.sum(offspring2)
     return offspring1, offspring2
 
-# A conscious decision was made not to implement a mutation operator
+
+def mutate_portfolio(weights: Iterable[float],
+                     weight_change_probability: float = 0.05,
+                     s_deviation: float = 0.1) -> None:
+    """The operation is performed in place!"""
+    for value in weights:
+        if np.random.random() < weight_change_probability:
+            value += np.random.normal(0, s_deviation)
+            value = np.clip(value, 0, None)
+    s = np.sum(weights)
+    for value in weights:
+        value /= s
 
 
 def random_portfolio_population(
