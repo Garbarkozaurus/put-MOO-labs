@@ -121,31 +121,39 @@ def assign_initial_pop_to_goals(
 
 
 def MOEAD_main_loop(
-        companies: list[Company], fitness_function: Callable,
-        num_scalarizing_functions: int = 100,
-        num_objectives: int = 2, neighborhood_size: int = 3,
-        generation_cap: int = 500, iter_without_improvement_cap: int = 3,
-        crossover_distr_index: int = 5,
+        companies: list[Company], fitness_function_name: str,
+        population_size: int = 100,
+        n_objectives: int = 2, neighborhood_size: int = 3,
+        generations: int = 500,
+        crossover_distr_idx: int = 5,
         mutation_probability: float = 0.1
-        ) -> np.ndarray[np.float32]:
-    """Returns the final population"""
+        ) -> tuple[np.ndarray[np.float32], int]:
+    """Returns the final population and the number of the final generation"""
     # Initialization
     population = evolutionary_operators.random_portfolio_population(
-        len(companies), num_scalarizing_functions)
-    sampled_weights = sample_goal_weights(num_scalarizing_functions, num_objectives)
+        len(companies), population_size)
+    evolutionary_operators.export_population(population, EXPORT_PATH, PARAMETERS, 0, "a+")
+    sampled_weights = sample_goal_weights(population_size, n_objectives)
+    # using a string to allow for consistent exporting
+    match fitness_function_name:
+        case "chebyshev":
+            fitness_function = evaluate_portfolio_chebyshev
+        case "weighted_sum":
+            fitness_function = evaluate_portfolio_weighted_sum
     portfolio_assignments, fitness_assignments = assign_initial_pop_to_goals(
         population, fitness_function, sampled_weights)
     goal_neighborhoods = closest_goals(sampled_weights, neighborhood_size)
 
     # Loop helper variables
+    iter_without_improvement_cap: int = 3
     no_improvement_count = 0
     improvement_this_iter = False
-    for generation in range(generation_cap):
+    for generation in range(generations):
         improvement_this_iter = False
         for goal in sampled_weights:
             offspring = MOEAD_offspring(
                 goal, portfolio_assignments, goal_neighborhoods,
-                crossover_distr_index)
+                crossover_distr_idx)
             evolutionary_operators.mutate_portfolio(
                 offspring, mutation_probability)
             for neighboring_goal in goal_neighborhoods[goal]:
@@ -162,11 +170,15 @@ def MOEAD_main_loop(
         if no_improvement_count == iter_without_improvement_cap:
             print(f"NO IMPROVEMENT IN GENERATION: {generation+1}")
             break
-        if generation % 100 == 0:
+        if len(set([utils.portfolio_expected_return(companies, p) for p in portfolio_assignments.values()])) < population_size:
+            print(f"REDUCED POP SIZE IN GENERATION: {generation+1}")
+            break
+        if generation % 10 == 0:
             np_pop = np.array(list(portfolio_assignments.values()))
-            generation_rel = generation/generation_cap
+            generation_rel = generation/generations
+            evolutionary_operators.export_population(population, EXPORT_PATH, PARAMETERS, generation+1, "a+", True)
             plot_population(companies, np_pop, generation_rel, show=False, alpha=generation_rel)
-    return np.array(list(portfolio_assignments.values()))
+    return np.array(list(portfolio_assignments.values())), generation
 
 
 def plot_population(
@@ -200,9 +212,31 @@ def plot_population(
         plt.show()
 
 
+PARAMETERS = {
+    "fitness_function_name": "chebyshev",
+    "n_objectives": 2,
+    "neighborhood_size": 3,
+    "generations": 500,
+    "population_size": 100,
+    "crossover_distr_idx": 1,
+    "mutation_probability": 0.1,
+}
+
+
+def path_from_params(parameters: dict) -> str:
+    nhood = parameters["neighborhood_size"]
+    xover = parameters["crossover_distr_idx"]
+    mut = parameters["mutation_probability"]
+    return f"./populations/nhood_{nhood}_xover_{xover}_mut_{mut}.txt"
+
+
+EXPORT_PATH = path_from_params(PARAMETERS)
+
+
 if __name__ == "__main__":
     companies = data_loading.load_all_companies_from_dir("./data/Bundle1")
     for company in companies:
         company.expected_return, _ = return_estimation.predict_expected_return_linear_regression(company, 200)
-    pop = MOEAD_main_loop(companies, evaluate_portfolio_chebyshev, 100, 2, generation_cap=500)
+    pop, gen_num = MOEAD_main_loop(companies, **PARAMETERS)
     plot_population(companies, pop, 1)
+    evolutionary_operators.export_population(pop, EXPORT_PATH, PARAMETERS, gen_num, "a+", True)
