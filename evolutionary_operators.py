@@ -75,10 +75,11 @@ def export_population(
         population: np.ndarray[np.float32],
         file_path: str, parameters: dict,
         generation_number: int,
-        mode: str) -> None:
+        mode: str, skip_header: bool = False) -> None:
     with open(file_path, mode) as fp:
-        fp.write(",".join(map(lambda x: f"{x[0]},{x[1]}", parameters.items())))
-        fp.write("\n")
+        if not skip_header:
+            fp.write(",".join(map(lambda x: f"{x[0]},{x[1]}", parameters.items())))
+            fp.write("\n")
         for individual in population:
             fp.write(f"{generation_number};{','.join(map(str, individual))}\n")
 
@@ -95,8 +96,12 @@ def load_population(file_path: str) -> tuple[dict, np.ndarray[np.float32], np.nd
         lines = [line.strip() for line in lines]
         params_line = lines[0].split(',')
         parameters = dict(zip(params_line[::2], params_line[1::2]))
-        parameters['generations'] = int(parameters['generations'])
-        parameters['population_size'] = int(parameters['population_size'])
+        parameters["n_objectives"] = int(parameters["n_objectives"])
+        parameters["neighborhood_size"] = int(parameters["neighborhood_size"])
+        parameters["generations"] = int(parameters["generations"])
+        parameters["population_size"] = int(parameters["population_size"])
+        parameters["crossover_distr_idx"] = int(parameters["crossover_distr_idx"])
+        parameters["mutation_probability"] = float(parameters["mutation_probability"])
 
         generations, population = zip(*[process_line(line) for line in lines[1:]])
     population = np.array(population)
