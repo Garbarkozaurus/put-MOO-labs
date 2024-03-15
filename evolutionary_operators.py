@@ -71,6 +71,39 @@ def random_portfolio_population(
     return members
 
 
+def export_population(
+        population: np.ndarray[np.float32],
+        file_path: str, parameters: dict,
+        generation_number: int,
+        mode: str) -> None:
+    with open(file_path, mode) as fp:
+        fp.write(",".join(map(lambda x: f"{x[0]},{x[1]}", parameters.items())))
+        fp.write("\n")
+        for individual in population:
+            fp.write(f"{generation_number};{','.join(map(str, individual))}\n")
+
+
+def load_population(file_path: str) -> tuple[dict, np.ndarray[np.float32], np.ndarray[np.int32]]:
+    def process_line(line: str) -> list[tuple[int, list[np.float32]]]:
+        generation, weights = line.split(';')
+        generation = int(generation)
+        weights = list(map(np.float32, weights.split(',')))
+        return np.array(generation), np.array(weights)
+
+    with open(file_path, "r") as fp:
+        lines = fp.readlines()
+        lines = [line.strip() for line in lines]
+        params_line = lines[0].split(',')
+        parameters = dict(zip(params_line[::2], params_line[1::2]))
+        parameters['generations'] = int(parameters['generations'])
+        parameters['population_size'] = int(parameters['population_size'])
+
+        generations, population = zip(*[process_line(line) for line in lines[1:]])
+    population = np.array(population)
+    generations = np.array(generations)
+    return parameters, population, generations
+
+
 if __name__ == "__main__":
     plot_SBX_distribution(0.2, 0.8, 10, 1000)
     PORTFOLIO1 = [0.2, 0.2, 0.2, 0.2, 0.2, 0, 0, 0, 0, 0]
