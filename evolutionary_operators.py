@@ -109,6 +109,23 @@ def load_population(file_path: str) -> tuple[dict, np.ndarray[np.float32], np.nd
     return parameters, population, generations
 
 
+def inverted_generational_distance(
+        front_coordinates: list[tuple[float, float]],
+        population_coordinates: list[tuple[float, float]],
+        exponent: int = 2) -> float:
+    def point_distance(
+            ref_point: tuple[float, float],
+            portfolio_point: tuple[float, float]) -> float:
+        return np.sqrt(sum([(a-b)**2 for a, b in zip(ref_point, portfolio_point)]))
+    min_distances = []
+    for reference_point in front_coordinates:
+        distances = [point_distance(reference_point, p_point) for p_point in population_coordinates]
+        min_dist = np.min(distances)
+        min_distances.append(min_dist)
+    dist_sum = np.sum(np.power(min_distances, exponent))
+    return np.power(dist_sum, 1/exponent) / len(front_coordinates)
+
+
 if __name__ == "__main__":
     plot_SBX_distribution(0.2, 0.8, 10, 1000)
     PORTFOLIO1 = [0.2, 0.2, 0.2, 0.2, 0.2, 0, 0, 0, 0, 0]
