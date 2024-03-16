@@ -79,6 +79,7 @@ def MOEAD_parent_selection(
 
 
 def MOEAD_offspring(
+        companies: list[Company],
         goal: tuple[float], portfolio_assignments: dict,
         goal_neighborhoods: dict, distribution_index: int) -> Iterable[float]:
     parent1, parent2 = MOEAD_parent_selection(goal, portfolio_assignments,
@@ -134,6 +135,8 @@ def MOEAD_main_loop(
     population = evolutionary_operators.random_portfolio_population(
         len(companies), population_size)
     evolutionary_operators.export_population(population, EXPORT_PATH, PARAMETERS, 0, "a+")
+    # plot the initial population
+    plot_population(companies, population, generation_rel=0, show=False, force_color="gray", alpha=0.5)
     sampled_weights = sample_goal_weights(population_size, n_objectives)
     # using a string to allow for consistent exporting
     match fitness_function_name:
@@ -153,7 +156,7 @@ def MOEAD_main_loop(
         improvement_this_iter = False
         for goal in sampled_weights:
             offspring = MOEAD_offspring(
-                goal, portfolio_assignments, goal_neighborhoods,
+                companies, goal, portfolio_assignments, goal_neighborhoods,
                 crossover_distr_idx)
             evolutionary_operators.mutate_portfolio(
                 offspring, mutation_probability)
@@ -190,7 +193,8 @@ def plot_population(
         title: str = "",
         export_pdf: bool = False,
         pdf_title: str = "pop1.pdf",
-        show: bool = True, alpha: float = 1.0) -> None:
+        show: bool = True, alpha: float = 1.0,
+        force_color: str | None = None) -> None:
     plot_points = []
     returns = []
     risks = []
@@ -202,7 +206,10 @@ def plot_population(
         returns.append(exp_ret)
         risks.append(risk)
 
-    plt.plot(returns, risks, "o", alpha=alpha, c=cm.viridis(generation_rel))
+    if not force_color:
+        plt.plot(returns, risks, "o", alpha=alpha, c=cm.viridis(generation_rel))
+    else:
+        plt.plot(returns, risks, "o", alpha=alpha, c=force_color)
     plt.xlabel("Expected return [100%]", **label_font)
     plt.ylabel("Risk [$ \$^2 $] ", **label_font)
     plt.grid()
@@ -239,5 +246,5 @@ if __name__ == "__main__":
     for company in companies:
         company.expected_return, _ = return_estimation.predict_expected_return_linear_regression(company, 200)
     pop, gen_num = MOEAD_main_loop(companies, **PARAMETERS)
-    plot_population(companies, pop, 1)
+    plot_population(companies, pop, 1, force_color="red")
     evolutionary_operators.export_population(pop, EXPORT_PATH, PARAMETERS, gen_num, "a+", True)
