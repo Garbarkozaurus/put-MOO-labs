@@ -105,6 +105,7 @@ def sample_goal_weights(
 
 
 def assign_initial_pop_to_goals(
+        companies: list[Company],
         population: np.ndarray[np.float32], fitness_function: Callable,
         goal_weights: list[tuple[float]]) -> tuple[dict, dict]:
     """Returns a pair of dicts:
@@ -141,7 +142,7 @@ def MOEAD_main_loop(
         case "weighted_sum":
             fitness_function = evaluate_portfolio_weighted_sum
     portfolio_assignments, fitness_assignments = assign_initial_pop_to_goals(
-        population, fitness_function, sampled_weights)
+        companies, population, fitness_function, sampled_weights)
     goal_neighborhoods = closest_goals(sampled_weights, neighborhood_size)
 
     # Loop helper variables
