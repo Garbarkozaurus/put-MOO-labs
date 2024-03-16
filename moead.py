@@ -2,9 +2,11 @@ import numpy as np
 from pymoo.util.ref_dirs import get_reference_directions
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
+from datetime import datetime
 
 from company import Company
 import data_loading
+import problem_construction
 import return_estimation
 import evolutionary_operators
 import utils
@@ -213,6 +215,93 @@ def MOEAD_main_loop(
     return np.array(list(portfolio_assignments.values())), generation
 
 
+def minimal_MOEAD_loop(
+        companies: list[Company],
+        ret_norm_const: float,
+        risk_norm_const: float,
+        fitness_function_name: str,
+        population_size: int = 100,
+        n_objectives: int = 2, neighborhood_size: int = 3,
+        generations: int = 500,
+        crossover_distr_idx: int = 5,
+        mutation_probability: float = 0.1
+        ) -> tuple[np.ndarray[np.float32], list[int]]:
+    # Initialization
+    population = evolutionary_operators.random_portfolio_population(
+        len(companies), population_size)
+    gen_list = [0] * population_size
+    populations = population.copy()
+    sampled_weights = sample_goal_weights(population_size, n_objectives)
+    # using a string to allow for consistent exporting
+    match fitness_function_name:
+        case "chebyshev":
+            fitness_function = evaluate_portfolio_chebyshev
+        case "weighted_sum":
+            fitness_function = evaluate_portfolio_weighted_sum
+    portfolio_assignments, fitness_assignments = assign_initial_pop_to_goals(
+        companies, population, fitness_function, ret_norm_const, risk_norm_const, sampled_weights)
+    goal_neighborhoods = closest_goals(sampled_weights, neighborhood_size)
+
+    # Loop helper variables
+    iter_without_improvement_cap: int = 3
+    no_improvement_count = 0
+    improvement_this_iter = False
+    for generation in range(generations):
+        improvement_this_iter = False
+        for goal in sampled_weights:
+            offspring = MOEAD_offspring(
+                companies, goal, portfolio_assignments, goal_neighborhoods,
+                crossover_distr_idx, fitness_function, ret_norm_const, risk_norm_const)
+            evolutionary_operators.mutate_portfolio(
+                offspring, mutation_probability)
+            for neighboring_goal in goal_neighborhoods[goal]:
+                fitness = fitness_function(
+                    companies, offspring, neighboring_goal, ret_norm_const, risk_norm_const)
+                if fitness > fitness_assignments[neighboring_goal]:
+                    portfolio_assignments[neighboring_goal] = offspring
+                    fitness_assignments[neighboring_goal] = fitness
+                    no_improvement_count = 0
+                    improvement_this_iter = True
+                    break  # unsure if this break should be here
+        if not improvement_this_iter:
+            no_improvement_count += 1
+        if no_improvement_count == iter_without_improvement_cap:
+            print(f"NO IMPROVEMENT IN GENERATION: {generation+1}")
+            break
+        np_pop = np.array(list(portfolio_assignments.values()))
+        num_unique = evolutionary_operators.num_unique_individuals_in_pop(np_pop)
+        if num_unique < population_size:
+            print(f"REDUCED POP SIZE IN GENERATION: {generation+1}")
+            print(f"Want: {population_size}, have: {num_unique}")
+            break
+        if generation % 10 == 0:
+            populations = np.vstack((populations, np_pop))
+            gen_list += [generation] * population_size
+    if gen_list[-1] == generation:
+        point_array = np.array([(utils.portfolio_expected_return(companies, p), utils.portfolio_risk(companies, p)) for p in populations])
+        return point_array, generations
+    np_pop = np.array(list(portfolio_assignments.values()))
+    populations = np.vstack((populations, np_pop))
+    point_array = np.array([(utils.portfolio_expected_return(companies, p), utils.portfolio_risk(companies, p)) for p in populations])
+    gen_list += [generation] * population_size
+    return point_array, gen_list
+
+
+def MOEAD_experiment(companies: list[Company], num_runs: int, parameters: dict) -> None:
+    ret_norm_const, risk_norm_const = problem_construction.exp_ret_risk_spreads(companies)
+    points = np.array([[0,0]],  dtype=np.float32)
+    gens = []
+    for i in range(num_runs):
+        print(f"Starting run {i+1}/{num_runs}... {datetime.now().strftime('%H:%M:%S')}")
+        p, g = minimal_MOEAD_loop(companies, ret_norm_const, risk_norm_const, **parameters)
+        points = np.vstack((points, p))
+        print(points.shape)
+        gens += g
+    exp_path = experiment_path_from_params(parameters)
+    # points[1:] to skip the initial zeros
+    evolutionary_operators.export_population_points(points[1:], exp_path, parameters, gens)
+
+
 def plot_population(
         companies: list[Company],
         population: np.ndarray[np.float32],
@@ -267,6 +356,11 @@ def path_from_params(parameters: dict) -> str:
     return f"./populations/{fname}_nhood_{nhood}_xover_{xover}_mut_{mut}.txt"
 
 
+def experiment_path_from_params(parameters: dict) -> str:
+    time_str = datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
+    return f"./populations/EXPERIMENT_{time_str}.txt"
+
+
 EXPORT_PATH = path_from_params(PARAMETERS)
 RET_NORM_CONST = 1.01
 RISK_NORM_CONST = 0.25
@@ -275,6 +369,7 @@ if __name__ == "__main__":
     companies = data_loading.load_all_companies_from_dir("./data/Bundle1")
     for company in companies:
         company.expected_return, _ = return_estimation.predict_expected_return_linear_regression(company, 200)
-    pop, gen_num = MOEAD_main_loop(companies, EXPORT_PATH, PARAMETERS, RET_NORM_CONST, RISK_NORM_CONST, **PARAMETERS)
-    plot_population(companies, pop, 1, force_color="red")
-    evolutionary_operators.export_population(pop, EXPORT_PATH, PARAMETERS, gen_num, "a+", True)
+    # pop, gen_num = MOEAD_main_loop(companies, EXPORT_PATH, PARAMETERS, RET_NORM_CONST, RISK_NORM_CONST, **PARAMETERS)
+    # plot_population(companies, pop, 1, force_color="red")
+    # evolutionary_operators.export_population(pop, EXPORT_PATH, PARAMETERS, gen_num, "a+", True)
+    MOEAD_experiment(companies, 10, PARAMETERS)
