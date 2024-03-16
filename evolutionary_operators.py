@@ -84,6 +84,71 @@ def export_population(
             fp.write(f"{generation_number};{','.join(map(str, individual))}\n")
 
 
+def export_population_points(points: np.ndarray[np.float32], file_path: str, parameters: dict, generation_numbers: list[int]) -> None:
+    with open(file_path, "w+") as fp:
+        fp.write(",".join(map(lambda x: f"{x[0]},{x[1]}", parameters.items())))
+        fp.write("\n")
+        for gen, (x, y) in zip(generation_numbers, points):
+            fp.write(f"{gen};{x},{y}\n")
+
+
+def load_population_points(file_path: str) -> tuple[dict, list[int], np.ndarray[np.float32]]:
+    def process_line(line: str) -> tuple[int, float, float]:
+        g_str, point_str = line.split(';')
+        gen = int(g_str)
+        ret, risk = point_str.split(',')
+        ret = np.float32(ret)
+        risk = np.float32(risk)
+        return gen, ret, risk
+
+    with open(file_path, "r") as fp:
+        lines = fp.readlines()
+        lines = [line.strip() for line in lines]
+        params_line = lines[0].split(',')
+        parameters = dict(zip(params_line[::2], params_line[1::2]))
+        parameters["n_objectives"] = int(parameters["n_objectives"])
+        parameters["neighborhood_size"] = int(parameters["neighborhood_size"])
+        parameters["generations"] = int(parameters["generations"])
+        parameters["population_size"] = int(parameters["population_size"])
+        parameters["crossover_distr_idx"] = int(parameters["crossover_distr_idx"])
+        parameters["mutation_probability"] = float(parameters["mutation_probability"])
+        gens = []
+        points = []
+        for line in lines[1:]:
+            g, ret, risk = process_line(line)
+            gens.append(g)
+            points.append((ret, risk))
+    return parameters, gens, np.array(points, dtype=np.float32)
+
+
+def plot_experiment_points(parameters: dict, generations: list[int], points: np.ndarray[np.float32]):
+    # for start in range(0, len(generations)-parameters["population_size"], parameters["population_size"]):
+    #     end = start + parameters["population_size"]
+    #     plt.plot(points[start:end, 0], points[start:end, 1], "o", label=generations[start], alpha=0.5)
+    # plt.legend(title="Generation", loc=2)
+    # plt.gcf().set_size_inches(10, 10)
+    # plt.show()
+    unique_generations = np.unique(generations)
+    avg_dict_ret = dict(zip(unique_generations, np.zeros((len(unique_generations), parameters["population_size"]), dtype=np.float32)))
+    avg_dict_risk = dict(zip(unique_generations, np.zeros((len(unique_generations), parameters["population_size"]), dtype=np.float32)))
+    counting_dict = dict.fromkeys(unique_generations, 0)
+    for i, gen in enumerate(generations):
+        avg_dict_ret[gen][i % parameters["population_size"]] += points[i][0]
+        avg_dict_risk[gen][i % parameters["population_size"]] += points[i][1]
+        counting_dict[gen] += 1
+    for g in unique_generations:
+        avg_dict_ret[g] /= counting_dict[g]
+        avg_dict_risk[g] /= counting_dict[g]
+        print(avg_dict_ret[0])
+
+    for g in unique_generations:
+        plt.plot(avg_dict_ret[g], avg_dict_risk[g], "o", label=g, alpha=0.5)
+    plt.legend(title="Generation", loc=2)
+    plt.grid()
+    plt.gcf().set_size_inches(10, 10)
+    plt.show()
+
+
 def load_population(file_path: str) -> tuple[dict, np.ndarray[np.float32], np.ndarray[np.int32]]:
     """Returns:
     - parameter dictionary
@@ -141,3 +206,5 @@ if __name__ == "__main__":
     PORTFOLIO2 = [0, 0, 0, 0, 0.1, 0.1, 0.2, 0.2, 0.2, 0.2]
 
     print(SBX_portfolios(PORTFOLIO1, PORTFOLIO2, 10))
+    params, gens, points = load_population_points("populations\EXPERIMENT_2024-03-16-22-25-19.txt")
+    plot_experiment_points(params, gens, points)
