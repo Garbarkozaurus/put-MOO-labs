@@ -85,6 +85,11 @@ def export_population(
 
 
 def load_population(file_path: str) -> tuple[dict, np.ndarray[np.float32], np.ndarray[np.int32]]:
+    """Returns:
+    - parameter dictionary
+    - individuals (portfolios) in a single numpy matrix
+    - np.ndarray with the generations when each individual was generated
+    """
     def process_line(line: str) -> list[tuple[int, list[np.float32]]]:
         generation, weights = line.split(';')
         generation = int(generation)
@@ -124,6 +129,17 @@ def inverted_generational_distance(
         min_distances.append(min_dist)
     dist_sum = np.sum(np.power(min_distances, exponent))
     return np.power(dist_sum, 1/exponent) / len(front_coordinates)
+
+
+def num_unique_individuals_in_pop(population: np.ndarray[np.float32]) -> int:
+    n = len(population)
+    # target_pairs = int(n*(n-1)/2)
+    actual_pairs = int(n*(n-1)/2)
+    for i, individual in enumerate(population[:-1]):
+        for j in range(i+1, n):
+            if np.allclose(individual, population[j]):
+                actual_pairs -= 1
+    return actual_pairs
 
 
 if __name__ == "__main__":
