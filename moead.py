@@ -81,15 +81,16 @@ def MOEAD_parent_selection(
 def MOEAD_offspring(
         companies: list[Company],
         goal: tuple[float], portfolio_assignments: dict,
-        goal_neighborhoods: dict, distribution_index: int) -> Iterable[float]:
+        goal_neighborhoods: dict, distribution_index: int,
+        fitness_function: Callable) -> Iterable[float]:
     parent1, parent2 = MOEAD_parent_selection(goal, portfolio_assignments,
                                               goal_neighborhoods)
     # the crossover produces two offspring. From them, the one better
     # with respect to the goal is selected
     offspring1, offspring2 = evolutionary_operators.SBX_portfolios(
         parent1, parent2, distribution_index)
-    fitness1 = evaluate_portfolio_weighted_sum(companies, offspring1, goal)
-    fitness2 = evaluate_portfolio_weighted_sum(companies, offspring2, goal)
+    fitness1 = fitness_function(companies, offspring1, goal)
+    fitness2 = fitness_function(companies, offspring2, goal)
     if fitness1 > fitness2:
         return offspring1
     else:
@@ -157,7 +158,7 @@ def MOEAD_main_loop(
         for goal in sampled_weights:
             offspring = MOEAD_offspring(
                 companies, goal, portfolio_assignments, goal_neighborhoods,
-                crossover_distr_idx)
+                crossover_distr_idx, fitness_function)
             evolutionary_operators.mutate_portfolio(
                 offspring, mutation_probability)
             for neighboring_goal in goal_neighborhoods[goal]:
