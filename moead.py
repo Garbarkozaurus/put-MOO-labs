@@ -14,32 +14,46 @@ from typing import Iterable, Callable
 def evaluate_portfolio_chebyshev(
         companies: list[Company],
         portfolio_weights: Iterable[float],
-        objective_weights: tuple[float]) -> float:
+        objective_weights: tuple[float],
+        ret_norm_const: float,
+        risk_norm_const: float) -> float:
     """Implicit objective order: expected_return, risk, number of included
-    companies"""
+    companies
+    What is being maximized: NEGATIVE DISTANCE TO THE OPTIMUM"""
     expected_return_w = objective_weights[0] * \
-        utils.portfolio_expected_return(companies, portfolio_weights)
-    risk_w = -1 * objective_weights[1] * utils.portfolio_risk(
-        companies, portfolio_weights)
+        utils.portfolio_expected_return(companies, portfolio_weights) \
+        / ret_norm_const
+    # UGLY simplification: taking the return spread as the optimum value of return
+    expected_return_w = -1 * (ret_norm_const - expected_return_w)
+    risk_w = objective_weights[1] * utils.portfolio_risk(
+        companies, portfolio_weights) / \
+        risk_norm_const
+    risk_w = -1 * risk_w  # optimum risk is 0
     values = [expected_return_w, risk_w]
     if len(objective_weights) == 3:
         included_companies_w = objective_weights[2] \
               * utils.portfolio_num_included_companies(portfolio_weights) \
               / len(companies)
+        included_companies_w = -1 * (1-included_companies_w)
         values.append(included_companies_w)
-    return max(values)
+    # must return the objective the solution is the worst at
+    return min(values)
 
 
 def evaluate_portfolio_weighted_sum(
         companies: list[Company],
         portfolio_weights: Iterable[float],
-        objective_weights: tuple[float]) -> float:
+        objective_weights: tuple[float],
+        ret_norm_const: float,
+        risk_norm_const: float) -> float:
     """Implicit objective order: expected_return, risk, number of included
     companies"""
     expected_return_w = objective_weights[0] * \
-        utils.portfolio_expected_return(companies, portfolio_weights)
+        utils.portfolio_expected_return(companies, portfolio_weights) / \
+        ret_norm_const
     risk_w = -1 * objective_weights[1] * utils.portfolio_risk(
-        companies, portfolio_weights)
+        companies, portfolio_weights) / \
+        risk_norm_const
     values = [expected_return_w, risk_w]
     if len(objective_weights) == 3:
         included_companies_w = objective_weights[2] \
@@ -82,19 +96,23 @@ def MOEAD_offspring(
         companies: list[Company],
         goal: tuple[float], portfolio_assignments: dict,
         goal_neighborhoods: dict, distribution_index: int,
-        fitness_function: Callable) -> Iterable[float]:
+        fitness_function: Callable,
+        ret_norm_const: float, risk_norm_const: float) -> Iterable[float]:
     parent1, parent2 = MOEAD_parent_selection(goal, portfolio_assignments,
                                               goal_neighborhoods)
     # the crossover produces two offspring. From them, the one better
     # with respect to the goal is selected
     offspring1, offspring2 = evolutionary_operators.SBX_portfolios(
         parent1, parent2, distribution_index)
-    fitness1 = fitness_function(companies, offspring1, goal)
-    fitness2 = fitness_function(companies, offspring2, goal)
-    if fitness1 > fitness2:
+    fitness1 = fitness_function(companies, offspring1, goal, ret_norm_const, risk_norm_const)
+    fitness2 = fitness_function(companies, offspring2, goal, ret_norm_const, risk_norm_const)
+    if fitness1 - fitness2 > 0.1:
         return offspring1
-    else:
+    if fitness2 - fitness1 > 0.1:
         return offspring2
+    if np.random.random() < 0.5:
+        return offspring1
+    return offspring2
 
 
 def sample_goal_weights(
@@ -109,6 +127,7 @@ def sample_goal_weights(
 def assign_initial_pop_to_goals(
         companies: list[Company],
         population: np.ndarray[np.float32], fitness_function: Callable,
+        ret_norm_const: float, risk_norm_const: float,
         goal_weights: list[tuple[float]]) -> tuple[dict, dict]:
     """Returns a pair of dicts:
     (goal): assigned portfolio
@@ -118,13 +137,19 @@ def assign_initial_pop_to_goals(
     portfolio_assignments = dict(zip(goal_weights, population))
     fitness_assignments = dict()
     for obj_weights, portfolio in portfolio_assignments.items():
-        fitness = fitness_function(companies, portfolio, obj_weights)
+        fitness = fitness_function(
+            companies, portfolio, obj_weights, ret_norm_const, risk_norm_const)
         fitness_assignments[obj_weights] = fitness
     return portfolio_assignments, fitness_assignments
 
 
 def MOEAD_main_loop(
-        companies: list[Company], fitness_function_name: str,
+        companies: list[Company],
+        export_path: str,
+        export_params_dict: dict,
+        ret_norm_const: float,
+        risk_norm_const: float,
+        fitness_function_name: str,
         population_size: int = 100,
         n_objectives: int = 2, neighborhood_size: int = 3,
         generations: int = 500,
@@ -135,7 +160,7 @@ def MOEAD_main_loop(
     # Initialization
     population = evolutionary_operators.random_portfolio_population(
         len(companies), population_size)
-    evolutionary_operators.export_population(population, EXPORT_PATH, PARAMETERS, 0, "a+")
+    evolutionary_operators.export_population(population, export_path, export_params_dict, 0, "a+")
     # plot the initial population
     plot_population(companies, population, generation_rel=0, show=False, force_color="gray", alpha=0.5)
     sampled_weights = sample_goal_weights(population_size, n_objectives)
@@ -146,7 +171,7 @@ def MOEAD_main_loop(
         case "weighted_sum":
             fitness_function = evaluate_portfolio_weighted_sum
     portfolio_assignments, fitness_assignments = assign_initial_pop_to_goals(
-        companies, population, fitness_function, sampled_weights)
+        companies, population, fitness_function, ret_norm_const, risk_norm_const, sampled_weights)
     goal_neighborhoods = closest_goals(sampled_weights, neighborhood_size)
 
     # Loop helper variables
@@ -158,12 +183,12 @@ def MOEAD_main_loop(
         for goal in sampled_weights:
             offspring = MOEAD_offspring(
                 companies, goal, portfolio_assignments, goal_neighborhoods,
-                crossover_distr_idx, fitness_function)
+                crossover_distr_idx, fitness_function, ret_norm_const, risk_norm_const)
             evolutionary_operators.mutate_portfolio(
                 offspring, mutation_probability)
             for neighboring_goal in goal_neighborhoods[goal]:
                 fitness = fitness_function(
-                    companies, offspring, neighboring_goal)
+                    companies, offspring, neighboring_goal, ret_norm_const, risk_norm_const)
                 if fitness > fitness_assignments[neighboring_goal]:
                     portfolio_assignments[neighboring_goal] = offspring
                     fitness_assignments[neighboring_goal] = fitness
@@ -175,13 +200,15 @@ def MOEAD_main_loop(
         if no_improvement_count == iter_without_improvement_cap:
             print(f"NO IMPROVEMENT IN GENERATION: {generation+1}")
             break
-        if len(set([utils.portfolio_expected_return(companies, p) for p in portfolio_assignments.values()])) < population_size:
+        np_pop = np.array(list(portfolio_assignments.values()))
+        num_unique = evolutionary_operators.num_unique_individuals_in_pop(np_pop)
+        if num_unique < population_size:
             print(f"REDUCED POP SIZE IN GENERATION: {generation+1}")
+            print(f"Want: {population_size}, have: {num_unique}")
             break
         if generation % 10 == 0:
-            np_pop = np.array(list(portfolio_assignments.values()))
             generation_rel = generation/generations
-            evolutionary_operators.export_population(population, EXPORT_PATH, PARAMETERS, generation+1, "a+", True)
+            evolutionary_operators.export_population(population, export_path, export_params_dict, generation+1, "a+", True)
             plot_population(companies, np_pop, generation_rel, show=False, alpha=generation_rel)
     return np.array(list(portfolio_assignments.values())), generation
 
@@ -222,8 +249,8 @@ def plot_population(
 
 
 PARAMETERS = {
-    "fitness_function_name": "chebyshev",
-    "n_objectives": 2,
+    "fitness_function_name": "weighted_sum",  # "chebyshev" or "weighted_sum"
+    "n_objectives": 3,
     "neighborhood_size": 3,
     "generations": 500,
     "population_size": 100,
@@ -233,19 +260,21 @@ PARAMETERS = {
 
 
 def path_from_params(parameters: dict) -> str:
+    fname = parameters['fitness_function_name']
     nhood = parameters["neighborhood_size"]
     xover = parameters["crossover_distr_idx"]
     mut = parameters["mutation_probability"]
-    return f"./populations/nhood_{nhood}_xover_{xover}_mut_{mut}.txt"
+    return f"./populations/{fname}_nhood_{nhood}_xover_{xover}_mut_{mut}.txt"
 
 
 EXPORT_PATH = path_from_params(PARAMETERS)
-
+RET_NORM_CONST = 1.01
+RISK_NORM_CONST = 0.25
 
 if __name__ == "__main__":
     companies = data_loading.load_all_companies_from_dir("./data/Bundle1")
     for company in companies:
         company.expected_return, _ = return_estimation.predict_expected_return_linear_regression(company, 200)
-    pop, gen_num = MOEAD_main_loop(companies, **PARAMETERS)
+    pop, gen_num = MOEAD_main_loop(companies, EXPORT_PATH, PARAMETERS, RET_NORM_CONST, RISK_NORM_CONST, **PARAMETERS)
     plot_population(companies, pop, 1, force_color="red")
     evolutionary_operators.export_population(pop, EXPORT_PATH, PARAMETERS, gen_num, "a+", True)
