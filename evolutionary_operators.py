@@ -132,14 +132,7 @@ def inverted_generational_distance(
 
 
 def num_unique_individuals_in_pop(population: np.ndarray[np.float32]) -> int:
-    n = len(population)
-    # target_pairs = int(n*(n-1)/2)
-    actual_pairs = int(n*(n-1)/2)
-    for i, individual in enumerate(population[:-1]):
-        for j in range(i+1, n):
-            if np.allclose(individual, population[j]):
-                actual_pairs -= 1
-    return actual_pairs
+    return len(np.unique(population, axis=0))
 
 
 if __name__ == "__main__":
