@@ -208,7 +208,7 @@ def MOEAD_main_loop(
             break
         if generation % 10 == 0:
             generation_rel = generation/generations
-            evolutionary_operators.export_population(population, export_path, export_params_dict, generation+1, "a+", True)
+            evolutionary_operators.export_population(np_pop, export_path, export_params_dict, generation+1, "a+", True)
             plot_population(companies, np_pop, generation_rel, show=False, alpha=generation_rel)
     return np.array(list(portfolio_assignments.values())), generation
 
