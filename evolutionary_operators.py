@@ -139,7 +139,8 @@ def plot_experiment_points(parameters: dict, generations: list[int], points: np.
     for g in unique_generations:
         avg_dict_ret[g] /= counting_dict[g]
         avg_dict_risk[g] /= counting_dict[g]
-        print(avg_dict_ret[0])
+        avg_dict_ret[g] *= parameters["population_size"]
+        avg_dict_risk[g] *= parameters["population_size"]
 
     for g in unique_generations:
         plt.plot(avg_dict_ret[g], avg_dict_risk[g], "o", label=g, alpha=0.5)
