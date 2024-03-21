@@ -1,6 +1,10 @@
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib.cm as cm
 
+import solver_create_front
+import data_loading
+import utils
 from typing import Iterable
 
 
@@ -34,25 +38,18 @@ def SBX_beta(distr_index: int) -> float:
         return (1/(2*(1-random_number))) ** (1/(distr_index+1))
 
 
-def SBX_portfolios(weights1: Iterable[float], weights2: Iterable[float],
+def SBX_portfolios(weights1: np.ndarray[np.float32], weights2: np.ndarray[np.float32],
                    distr_index: int
-                   ) -> tuple[Iterable[float], Iterable[float]]:
-    # How should this actually work?
-    # - Crossover each weight independently
-    # - The offspring are just a combination of the two parents
+                   ) -> tuple[np.ndarray[np.float32], np.ndarray[np.float32]]:
     beta = SBX_beta(distr_index)
-    offspring1 = np.array([0.5 * ((1+beta) * x1 + (1-beta) * x2) for x1, x2 in zip(weights1, weights2)])
-    offspring2 = np.array([0.5 * ((1-beta) * x1 + (1+beta) * x2) for x1, x2 in zip(weights1, weights2)])
-    offspring1 = np.clip(offspring1, 0, None)
-    offspring2 = np.clip(offspring2, 0, None)
-    offspring1 = offspring1 / np.sum(offspring1)
-    offspring2 = offspring2 / np.sum(offspring2)
+    offspring1 = 0.5*(1+beta)*weights1+0.5*(1-beta)*weights2
+    offspring2 = 0.5*(1-beta)*weights1+0.5*(1+beta)*weights2
     return offspring1, offspring2
 
 
-def mutate_portfolio(weights: Iterable[float],
-                     weight_change_probability: float = 0.05,
-                     s_deviation: float = 0.1) -> None:
+def mutate_portfolio(
+        weights: Iterable[float], weight_change_probability: float = 0.05,
+        s_deviation: float = 0.1) -> None:
     """The operation is performed in place!"""
     for value in weights:
         if np.random.random() < weight_change_probability:
@@ -66,6 +63,7 @@ def mutate_portfolio(weights: Iterable[float],
 def random_portfolio_population(
         num_variables: int, population_size: int) -> np.ndarray[np.float32]:
     members = np.random.random(size=(population_size, num_variables))
+    # TODO: change to generate from sorted random vars
     for row in members:
         row /= np.sum(row)
     return members
@@ -150,6 +148,45 @@ def plot_experiment_points(parameters: dict, generations: list[int], points: np.
     plt.show()
 
 
+def get_average_points(
+        parameters: dict, generations: list[int],
+        points: np.ndarray[np.float32]) -> dict[int, np.ndarray[np.float32]]:
+    unique_generations = np.unique(generations)
+    avg_dict_ret = dict(zip(unique_generations, np.zeros((len(unique_generations), parameters["population_size"]), dtype=np.float32)))
+    avg_dict_risk = dict(zip(unique_generations, np.zeros((len(unique_generations), parameters["population_size"]), dtype=np.float32)))
+    counting_dict = dict.fromkeys(unique_generations, 0)
+    for i, gen in enumerate(generations):
+        avg_dict_ret[gen][i % parameters["population_size"]] += points[i][0]
+        avg_dict_risk[gen][i % parameters["population_size"]] += points[i][1]
+        counting_dict[gen] += 1
+    for g in unique_generations:
+        avg_dict_ret[g] /= counting_dict[g]
+        avg_dict_risk[g] /= counting_dict[g]
+        avg_dict_ret[g] *= parameters["population_size"]
+        avg_dict_risk[g] *= parameters["population_size"]
+    return avg_dict_risk
+
+
+def plot_convergence(
+        front_points: np.ndarray[np.float32],
+        parameters: dict, generations: list[int],
+        points: np.ndarray[np.float32], color: str, show: bool=True):
+    unique_generations = np.unique(generations)
+    unique_generations = np.sort(unique_generations)
+    distances = [[] for _ in unique_generations]
+    averages = []
+    for i, g in enumerate(unique_generations):
+        indices = np.where(generations==g)
+        selected_members = points[indices]
+        selected_members = np.reshape(selected_members, (-1, parameters["population_size"], 2))
+        for pop in selected_members:
+            distances[i].append(inverted_generational_distance(front_points, pop))
+        averages.append(np.mean(distances[i]))
+    # path_effects=[path_effects.SimpleLineShadow(shadow_color=color, linewidth=)]
+    plt.plot(averages, c=color)
+    plt.show()
+
+
 def load_population(file_path: str) -> tuple[dict, np.ndarray[np.float32], np.ndarray[np.int32]]:
     """Returns:
     - parameter dictionary
@@ -203,8 +240,8 @@ def num_unique_individuals_in_pop(population: np.ndarray[np.float32]) -> int:
 
 if __name__ == "__main__":
     plot_SBX_distribution(0.2, 0.8, 10, 1000)
-    PORTFOLIO1 = [0.2, 0.2, 0.2, 0.2, 0.2, 0, 0, 0, 0, 0]
-    PORTFOLIO2 = [0, 0, 0, 0, 0.1, 0.1, 0.2, 0.2, 0.2, 0.2]
+    PORTFOLIO1 = np.array([0.2, 0.2, 0.2, 0.2, 0.2, 0, 0, 0, 0, 0])
+    PORTFOLIO2 = np.array([0, 0, 0, 0, 0.1, 0.1, 0.2, 0.2, 0.2, 0.2])
 
     print(SBX_portfolios(PORTFOLIO1, PORTFOLIO2, 10))
     params, gens, points = load_population_points("populations\EXPERIMENT_2024-03-16-22-25-19.txt")
