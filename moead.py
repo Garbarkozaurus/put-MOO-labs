@@ -108,11 +108,7 @@ def MOEAD_offspring(
         parent1, parent2, distribution_index)
     fitness1 = fitness_function(companies, offspring1, goal, ret_norm_const, risk_norm_const)
     fitness2 = fitness_function(companies, offspring2, goal, ret_norm_const, risk_norm_const)
-    if fitness1 - fitness2 > 0.1:
-        return offspring1
-    if fitness2 - fitness1 > 0.1:
-        return offspring2
-    if np.random.random() < 0.5:
+    if fitness1 > fitness2:
         return offspring1
     return offspring2
 
