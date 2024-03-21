@@ -27,6 +27,7 @@ def plot_SBX_distribution(
 
 
 def SBX_beta(distr_index: int) -> float:
+    # This is incompatible with the rest of the code - can give values > 1
     random_number = np.random.rand()
     if random_number <= 0.5:
         return (2 * random_number) ** (1/(distr_index+1))
