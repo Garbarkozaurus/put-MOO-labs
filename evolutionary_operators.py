@@ -38,9 +38,10 @@ def SBX_beta(distr_index: int) -> float:
         return (1/(2*(1-random_number))) ** (1/(distr_index+1))
 
 
-def SBX_portfolios(weights1: np.ndarray[np.float32], weights2: np.ndarray[np.float32],
-                   distr_index: int
-                   ) -> tuple[np.ndarray[np.float32], np.ndarray[np.float32]]:
+def SBX_portfolios(
+        weights1: np.ndarray[np.float32], weights2: np.ndarray[np.float32],
+        distr_index: int
+        ) -> tuple[np.ndarray[np.float32], np.ndarray[np.float32]]:
     beta = SBX_beta(distr_index)
     offspring1 = 0.5*(1+beta)*weights1+0.5*(1-beta)*weights2
     offspring2 = 0.5*(1-beta)*weights1+0.5*(1+beta)*weights2
@@ -60,13 +61,16 @@ def mutate_portfolio(
         value /= s
 
 
+def random_distr(distr_size: int) -> list[float]:
+    values = [0.0, 1.0] + [np.random.random() for _ in range(distr_size - 1)]
+    values.sort()
+    return [values[i+1] - values[i] for i in range(distr_size)]
+
+
 def random_portfolio_population(
         num_variables: int, population_size: int) -> np.ndarray[np.float32]:
-    members = np.random.random(size=(population_size, num_variables))
-    # TODO: change to generate from sorted random vars
-    for row in members:
-        row /= np.sum(row)
-    return members
+    members = [random_distr(num_variables) for _ in range(population_size)]
+    return np.array(members)
 
 
 def export_population(
