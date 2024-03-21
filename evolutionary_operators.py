@@ -59,8 +59,9 @@ def SBX_portfolios(
 
 
 def mutate_portfolio(
-        weights: Iterable[float], weights_len: int = 20,
-        weight_exchange_probability: float = 1/19) -> None:
+        weights: Iterable[float],
+        weight_exchange_probability: float = 1/19,
+        weights_len: int = 20) -> None:
     """Iterates through the weight vector, "redistributing weights in pairs".
     If a random variable is smaller than `weight_swap_probability`,
     the current pair of weights will be modified - they will become
