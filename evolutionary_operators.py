@@ -1,10 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
-import matplotlib.cm as cm
 
-import solver_create_front
-import data_loading
-import utils
 from typing import Iterable
 
 
@@ -48,17 +44,35 @@ def SBX_portfolios(
     return offspring1, offspring2
 
 
+# not recommended because of introducing the need for normalization -> bias
+# def mutate_portfolio(
+#         weights: Iterable[float], weight_change_probability: float = 0.05,
+#         s_deviation: float = 0.1) -> None:
+#     """The operation is performed in place!"""
+#     for value in weights:
+#         if np.random.random() < weight_change_probability:
+#             value += np.random.normal(0, s_deviation)
+#             value = np.clip(value, 0, None)
+#     s = np.sum(weights)
+#     for value in weights:
+#         value /= s
+
+
 def mutate_portfolio(
-        weights: Iterable[float], weight_change_probability: float = 0.05,
-        s_deviation: float = 0.1) -> None:
-    """The operation is performed in place!"""
-    for value in weights:
-        if np.random.random() < weight_change_probability:
-            value += np.random.normal(0, s_deviation)
-            value = np.clip(value, 0, None)
-    s = np.sum(weights)
-    for value in weights:
-        value /= s
+        weights: Iterable[float], weights_len: int = 20,
+        weight_exchange_probability: float = 1/19) -> None:
+    """Iterates through the weight vector, "redistributing weights in pairs".
+    If a random variable is smaller than `weight_swap_probability`,
+    the current pair of weights will be modified - they will become
+    a "convex combination of their sum".
+    The operation is performed in place!"""
+    for i, value in enumerate(weights[:-1]):
+        if np.random.random() < weight_exchange_probability:
+            swapped_idx = np.random.randint(i+1, weights_len)
+            pair_sum = value+weights[swapped_idx]
+            share_first = np.random.random()
+            weights[i] = share_first*pair_sum
+            weights[swapped_idx] = (1-share_first)*pair_sum
 
 
 def random_distr(distr_size: int) -> list[float]:
