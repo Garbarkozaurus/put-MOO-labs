@@ -8,6 +8,18 @@ from data_loading import load_saved_front
 import evolutionary_operators
 import utils
 
+LINESTYLE_DICT = {
+    250: "dotted",
+    500: "dashed",
+    1000: "solid"
+}
+
+COLOR_DICT = {
+    50: "red",
+    100: "green",
+    200: "blue"
+}
+
 
 def plot_experiment_points(parameters: dict, generations: list[int], points: np.ndarray[np.float32]):
     unique_generations = np.unique(generations)
@@ -87,7 +99,7 @@ def inverted_generational_distance(
 def plot_convergence_inverted_gen_distance(
         front_points: np.ndarray[np.float32],
         parameters: dict, generations: list[int],
-        points: np.ndarray[np.float32], color: str, show: bool=True,
+        points: np.ndarray[np.float32], show: bool=True,
         save_pdf: bool = False):
     unique_generations = np.unique(generations)
     unique_generations = np.sort(unique_generations)
@@ -95,6 +107,8 @@ def plot_convergence_inverted_gen_distance(
     averages = []
     minima = []
     maxima = []
+    color = COLOR_DICT[parameters["population_size"]]
+    linestyle = LINESTYLE_DICT[parameters["generations"]]
     for i, g in enumerate(unique_generations):
         indices = np.where(generations==g)
         selected_members = points[indices]
@@ -107,12 +121,13 @@ def plot_convergence_inverted_gen_distance(
     averages = np.array(averages)
     minima = np.array(minima)
     maxima = np.array(maxima)
-    plt.plot(unique_generations, averages, c=color)
+    plt.plot(unique_generations, averages, c=color, linestyle=linestyle, label=f"pop={parameters['population_size']}, gens={parameters['generations']}")
     plt.fill_between(unique_generations, averages-minima, averages+maxima, alpha=0.5, facecolor=color)
     plt.xticks(unique_generations[::5])
-    title_font = {"fontname": "Times New Roman"}
+    # title_font = {"fontname": "Times New Roman"}
     title = f"IGD pop_size={parameters['population_size']}, gen={parameters['generations']}"
-    plt.title(title, **title_font)
+    # plt.title(title, **title_font)
+    plt.legend()
     plt.gcf().set_size_inches(8.8, 5.4)
     if save_pdf:
         plt.savefig(title, format="pdf")
@@ -175,9 +190,9 @@ def igd_heatmap_from_file(igd_path: str) -> None:
 if __name__ == "__main__":
     POINT_PATH = "populations/EXPERIMENT_2024-03-22-21-29-09.txt"
     ec_front = load_saved_front("./saved_fronts/ec_front1.txt")
-    # parameters, generations, points = evolutionary_operators.load_population_points(POINT_PATH)
+    parameters, generations, points = evolutionary_operators.load_population_points(POINT_PATH)
     # plot_experiment_points(parameters, generations, points)
-    # plot_convergence_inverted_gen_distance(ec_front, parameters, generations, points, "green", save_pdf=True)
+    plot_convergence_inverted_gen_distance(ec_front, parameters, generations, points)
     # files = Path("./populations/").glob("EXPERIMENT*.txt")
     # for file in files:
     #     export_igd_from_file(ec_front, file, "igd_points.txt")
