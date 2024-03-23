@@ -134,35 +134,6 @@ def load_population_points(file_path: str) -> tuple[dict, list[int], np.ndarray[
     return parameters, gens, np.array(points, dtype=np.float32)
 
 
-def plot_experiment_points(parameters: dict, generations: list[int], points: np.ndarray[np.float32]):
-    # for start in range(0, len(generations)-parameters["population_size"], parameters["population_size"]):
-    #     end = start + parameters["population_size"]
-    #     plt.plot(points[start:end, 0], points[start:end, 1], "o", label=generations[start], alpha=0.5)
-    # plt.legend(title="Generation", loc=2)
-    # plt.gcf().set_size_inches(10, 10)
-    # plt.show()
-    unique_generations = np.unique(generations)
-    avg_dict_ret = dict(zip(unique_generations, np.zeros((len(unique_generations), parameters["population_size"]), dtype=np.float32)))
-    avg_dict_risk = dict(zip(unique_generations, np.zeros((len(unique_generations), parameters["population_size"]), dtype=np.float32)))
-    counting_dict = dict.fromkeys(unique_generations, 0)
-    for i, gen in enumerate(generations):
-        avg_dict_ret[gen][i % parameters["population_size"]] += points[i][0]
-        avg_dict_risk[gen][i % parameters["population_size"]] += points[i][1]
-        counting_dict[gen] += 1
-    for g in unique_generations:
-        avg_dict_ret[g] /= counting_dict[g]
-        avg_dict_risk[g] /= counting_dict[g]
-        avg_dict_ret[g] *= parameters["population_size"]
-        avg_dict_risk[g] *= parameters["population_size"]
-
-    for g in unique_generations:
-        plt.plot(avg_dict_ret[g], avg_dict_risk[g], "o", label=g, alpha=0.5)
-    plt.legend(title="Generation", loc=2)
-    plt.grid()
-    plt.gcf().set_size_inches(10, 10)
-    plt.show()
-
-
 def get_average_points(
         parameters: dict, generations: list[int],
         points: np.ndarray[np.float32]) -> dict[int, np.ndarray[np.float32]]:
@@ -180,26 +151,6 @@ def get_average_points(
         avg_dict_ret[g] *= parameters["population_size"]
         avg_dict_risk[g] *= parameters["population_size"]
     return avg_dict_risk
-
-
-def plot_convergence(
-        front_points: np.ndarray[np.float32],
-        parameters: dict, generations: list[int],
-        points: np.ndarray[np.float32], color: str, show: bool=True):
-    unique_generations = np.unique(generations)
-    unique_generations = np.sort(unique_generations)
-    distances = [[] for _ in unique_generations]
-    averages = []
-    for i, g in enumerate(unique_generations):
-        indices = np.where(generations==g)
-        selected_members = points[indices]
-        selected_members = np.reshape(selected_members, (-1, parameters["population_size"], 2))
-        for pop in selected_members:
-            distances[i].append(inverted_generational_distance(front_points, pop))
-        averages.append(np.mean(distances[i]))
-    # path_effects=[path_effects.SimpleLineShadow(shadow_color=color, linewidth=)]
-    plt.plot(averages, c=color)
-    plt.show()
 
 
 def load_population(file_path: str) -> tuple[dict, np.ndarray[np.float32], np.ndarray[np.int32]]:
@@ -233,23 +184,6 @@ def load_population(file_path: str) -> tuple[dict, np.ndarray[np.float32], np.nd
     return parameters, population, generations
 
 
-def inverted_generational_distance(
-        front_coordinates: list[tuple[float, float]],
-        population_coordinates: list[tuple[float, float]],
-        exponent: int = 2) -> float:
-    def point_distance(
-            ref_point: tuple[float, float],
-            portfolio_point: tuple[float, float]) -> float:
-        return np.sqrt(sum([(a-b)**2 for a, b in zip(ref_point, portfolio_point)]))
-    min_distances = []
-    for reference_point in front_coordinates:
-        distances = [point_distance(reference_point, p_point) for p_point in population_coordinates]
-        min_dist = np.min(distances)
-        min_distances.append(min_dist)
-    dist_sum = np.sum(np.power(min_distances, exponent))
-    return np.power(dist_sum, 1/exponent) / len(front_coordinates)
-
-
 def num_unique_individuals_in_pop(population: np.ndarray[np.float32]) -> int:
     return len(np.unique(population, axis=0))
 
@@ -263,9 +197,3 @@ if __name__ == "__main__":
     a, b = SBX_portfolios(PORTFOLIO1, PORTFOLIO2, MODE, DISTR_IDX)
     print(a, np.sum(a))
     print(b, np.sum(b))
-    # params, gens, points = load_population_points("populations\EXPERIMENT_2024-03-16-22-25-19.txt")
-    # plot_experiment_points(params, gens, points)
-    betas = [SBX_beta(MODE, DISTR_IDX) for _ in range(10000)]
-    plt.hist(betas, bins=100)
-    plt.plot()
-    plt.show()
