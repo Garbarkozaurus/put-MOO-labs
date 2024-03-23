@@ -1,7 +1,5 @@
 import numpy as np
 from pymoo.util.ref_dirs import get_reference_directions
-import matplotlib.pyplot as plt
-import matplotlib.cm as cm
 from datetime import datetime
 
 from company import Company
@@ -9,6 +7,7 @@ import data_loading
 import problem_construction
 import return_estimation
 import evolutionary_operators
+from evolutionary_visualizations import plot_population
 import utils
 from typing import Iterable, Callable
 
@@ -65,9 +64,9 @@ def evaluate_portfolio_weighted_sum(
     return sum(values)
 
 
-def closest_goals(goal_vectors: Iterable[tuple[float]],
-                  neighborhood_size: int
-                  ) -> dict[tuple[float], tuple[tuple[float]]]:
+def closest_goals(
+        goal_vectors: Iterable[tuple[float]],
+        neighborhood_size: int) -> dict[tuple[float], tuple[tuple[float]]]:
     """Returns a dictionary (goal): (k closest goals, including itself)"""
     def distance(t1: tuple, t2: tuple) -> float:
         return np.sqrt(sum([(a-b)**2 for a, b in zip(t1, t2)]))
@@ -97,15 +96,16 @@ def MOEAD_parent_selection(
 def MOEAD_offspring(
         companies: list[Company],
         goal: tuple[float], portfolio_assignments: dict,
-        goal_neighborhoods: dict, distribution_index: int,
+        goal_neighborhoods: dict, crossover_mode: float,
+        distribution_index: int,
         fitness_function: Callable,
         ret_norm_const: float, risk_norm_const: float) -> Iterable[float]:
-    parent1, parent2 = MOEAD_parent_selection(goal, portfolio_assignments,
-                                              goal_neighborhoods)
+    parent1, parent2 = MOEAD_parent_selection(
+        goal, portfolio_assignments, goal_neighborhoods)
     # the crossover produces two offspring. From them, the one better
     # with respect to the goal is selected
     offspring1, offspring2 = evolutionary_operators.SBX_portfolios(
-        parent1, parent2, distribution_index)
+        parent1, parent2, crossover_mode, distribution_index)
     fitness1 = fitness_function(companies, offspring1, goal, ret_norm_const, risk_norm_const)
     fitness2 = fitness_function(companies, offspring2, goal, ret_norm_const, risk_norm_const)
     if fitness1 > fitness2:
@@ -152,6 +152,7 @@ def MOEAD_main_loop(
         n_objectives: int = 2, neighborhood_size: int = 3,
         generations: int = 500,
         crossover_distr_idx: int = 5,
+        crossover_mode: float = 0.9,
         mutation_probability: float = 0.1
         ) -> tuple[np.ndarray[np.float32], int]:
     """Returns the final population and the number of the final generation"""
@@ -180,7 +181,7 @@ def MOEAD_main_loop(
         improvement_this_iter = False
         for goal in sampled_weights:
             offspring = MOEAD_offspring(
-                companies, goal, portfolio_assignments, goal_neighborhoods,
+                companies, goal, portfolio_assignments, goal_neighborhoods, crossover_mode,
                 crossover_distr_idx, fitness_function, ret_norm_const, risk_norm_const)
             evolutionary_operators.mutate_portfolio(
                 offspring, mutation_probability)
@@ -219,6 +220,7 @@ def minimal_MOEAD_loop(
         population_size: int = 100,
         n_objectives: int = 2, neighborhood_size: int = 3,
         generations: int = 500,
+        crossover_mode: float = 0.9,
         crossover_distr_idx: int = 5,
         mutation_probability: float = 0.1
         ) -> tuple[np.ndarray[np.float32], list[int]]:
@@ -246,7 +248,7 @@ def minimal_MOEAD_loop(
         improvement_this_iter = False
         for goal in sampled_weights:
             offspring = MOEAD_offspring(
-                companies, goal, portfolio_assignments, goal_neighborhoods,
+                companies, goal, portfolio_assignments, goal_neighborhoods, crossover_mode,
                 crossover_distr_idx, fitness_function, ret_norm_const, risk_norm_const)
             evolutionary_operators.mutate_portfolio(
                 offspring, mutation_probability)
@@ -291,46 +293,10 @@ def MOEAD_experiment(companies: list[Company], num_runs: int, parameters: dict) 
         print(f"Starting run {i+1}/{num_runs}... {datetime.now().strftime('%H:%M:%S')}")
         p, g = minimal_MOEAD_loop(companies, ret_norm_const, risk_norm_const, **parameters)
         points = np.vstack((points, p))
-        print(points.shape)
         gens += g
     exp_path = experiment_path_from_params(parameters)
     # points[1:] to skip the initial zeros
     evolutionary_operators.export_population_points(points[1:], exp_path, parameters, gens)
-
-
-def plot_population(
-        companies: list[Company],
-        population: np.ndarray[np.float32],
-        generation_rel: float,
-        history_len: int | None = None,
-        title: str = "",
-        export_pdf: bool = False,
-        pdf_title: str = "pop1.pdf",
-        show: bool = True, alpha: float = 1.0,
-        force_color: str | None = None) -> None:
-    plot_points = []
-    returns = []
-    risks = []
-    label_font = {'fontname': 'Times New Roman'}
-    for sol in population:
-        exp_ret = utils.portfolio_expected_return(companies, sol)
-        risk = utils.portfolio_risk(companies, sol, history_len)
-        plot_points.append((exp_ret, risk))
-        returns.append(exp_ret)
-        risks.append(risk)
-
-    if not force_color:
-        plt.plot(returns, risks, "o", alpha=alpha, c=cm.viridis(generation_rel))
-    else:
-        plt.plot(returns, risks, "o", alpha=alpha, c=force_color)
-    plt.xlabel("Expected return [100%]", **label_font)
-    plt.ylabel("Risk [$ \$^2 $] ", **label_font)
-    plt.grid()
-    plt.title(title, **label_font)
-    if export_pdf:
-        plt.savefig(pdf_title, format="pdf")
-    if show:
-        plt.show()
 
 
 PARAMETERS = {
@@ -340,6 +306,7 @@ PARAMETERS = {
     "generations": 500,
     "population_size": 100,
     "crossover_distr_idx": 1,
+    "crossover_mode": 0.9,
     "mutation_probability": 0.1,
 }
 
