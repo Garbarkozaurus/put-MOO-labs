@@ -1,3 +1,4 @@
+import numpy as np
 from pathlib import Path
 
 from company import Company
@@ -23,6 +24,17 @@ def load_all_companies_from_dir(directory_path: str) -> list[Company]:
     """
     files = Path(directory_path).glob("*.txt")
     return [parse_company_file_from_path(file) for file in files]
+
+
+def load_saved_front(file_path: str) -> np.ndarray[np.float32]:
+    def process_point_line(line: str) -> tuple[np.float32, np.float32]:
+        x, y = line.split()
+        x = np.float32(x)
+        y = np.float32(y)
+        return x, y
+    with open(file_path, "r") as fp:
+        lines = [process_point_line(line) for line in fp.readlines()]
+    return np.array(lines)
 
 
 if __name__ == "__main__":
