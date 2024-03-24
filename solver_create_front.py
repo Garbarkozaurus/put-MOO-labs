@@ -12,15 +12,17 @@ def uniformly_search_weight_space(
         num_weights: int,
         prediction_time: int,
         fitting_timeline_start: int = 0,
-        history_len: int | None = None) -> list[tuple[dict, dict]]:
+        history_len: int | None = None,
+        calculate_expected_return: bool = True) -> list[tuple[dict, dict]]:
     """Portfolio optimization using the weighted-sum method
     Uses a linear regression model to predict the expected return
     Returns a list of two-element tuples:
     - the first element is a dictionary {'expected_return_weight': a, 'risk_weight': b}
     - the second is the dictionary returned by the appropriate cvxopt.solver"""
-    for company in companies:
-        company.expected_return, _ = return_estimation.predict_expected_return_linear_regression(
-            company, prediction_time, fitting_timeline_start)
+    if calculate_expected_return:
+        for company in companies:
+            company.expected_return, _ = return_estimation.predict_expected_return_linear_regression(
+                company, prediction_time, fitting_timeline_start)
     max_ret_solution = problem_construction.maximize_return_solver(companies)
     min_risk_solution = problem_construction.minimize_risk_solver(companies, history_len)
     ret_spread, risk_spread = problem_construction.exp_ret_risk_spreads(companies)
@@ -41,15 +43,17 @@ def uniformly_search_threshold_space(
         num_thresholds: int,
         prediction_time: int,
         fitting_timeline_start: int = 0,
-        history_len: int | None = None) -> list[tuple[float, dict]]:
+        history_len: int | None = None,
+        calculate_expected_return: bool = True) -> list[tuple[float, dict]]:
     """Portfolio optimization using the epsilon-constrained method
     Uses a linear regression model to predict the expected return
     Returns a list of two-element tuples:
     - the first element is the value of the minimum expected return threshold
     - the second is the dictionary returned by the appropriate cvxopt.solver"""
-    for company in companies:
-        company.expected_return, _ = return_estimation.predict_expected_return_linear_regression(
-            company, prediction_time, fitting_timeline_start)
+    if calculate_expected_return:
+        for company in companies:
+            company.expected_return, _ = return_estimation.predict_expected_return_linear_regression(
+                company, prediction_time, fitting_timeline_start)
     max_ret_solution = problem_construction.maximize_return_solver(companies)
     max_ret = utils.portfolio_expected_return(companies, max_ret_solution['x'])
     min_risk_solution = problem_construction.minimize_risk_solver(companies, history_len)
