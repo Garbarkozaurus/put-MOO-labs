@@ -43,7 +43,7 @@ def portfolio_risk(
 
 
 def portfolio_num_included_companies(
-        weights: Iterable[float], inclusion_threshold: float = 1e-5) -> int:
+        weights: Iterable[float], inclusion_threshold: float = 1e-1) -> int:
     return np.count_nonzero(np.array(weights) >= inclusion_threshold)
 
 
