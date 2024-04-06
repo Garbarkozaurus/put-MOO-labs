@@ -24,6 +24,7 @@ def plot_SBX_distribution(
 def SBX_beta(mode_val: float, distr_index: int) -> float:
     # beta is calculated from the formula for the mode of the beta distribution
     beta = (distr_index - 1) / mode_val - distr_index + 2
+    # num successes, num failures; distribution based on probabilities of success
     return np.random.beta(distr_index, beta)
 
 
@@ -36,6 +37,22 @@ def SBX_portfolios(
     beta = SBX_beta(mode_val, distr_index)
     offspring1 = beta*weights1+(1-beta)*weights2
     offspring2 = (1-beta)*weights1+beta*weights2
+    return offspring1, offspring2
+
+
+def SBX_more_random(
+        weights1: np.ndarray[np.float32], weights2: np.ndarray[np.float32],
+        mode_val: float, distr_index: int
+        ) -> tuple[np.ndarray[np.float32], np.ndarray[np.float32]]:
+    coeffs = [SBX_beta(mode_val, distr_index) for _ in range(weights1.shape[0]//2)] + [SBX_beta(1-mode_val, distr_index) for _ in range(weights1.shape[0]//2)]
+    coeffs = np.array(coeffs)
+    coeffs /= np.sum(coeffs)
+    np.random.shuffle(coeffs)
+    coeffs2 = 1-coeffs
+    offspring1 = coeffs*weights1+coeffs2*weights2
+    offspring2 = coeffs2*weights1+coeffs*weights2
+    offspring1 /= np.sum(offspring1)
+    offspring2 /= np.sum(offspring2)
     return offspring1, offspring2
 
 
@@ -97,7 +114,7 @@ def export_population(
 
 
 def export_population_points(points: np.ndarray[np.float32], file_path: str, parameters: dict, generation_numbers: list[int]) -> None:
-    with open(file_path, "w+") as fp:
+    with open(file_path, "w+") as fp:  # can be changed to a+ for try-abusing experiments
         fp.write(",".join(map(lambda x: f"{x[0]},{x[1]}", parameters.items())))
         fp.write("\n")
         for gen, (x, y) in zip(generation_numbers, points):
@@ -195,5 +212,8 @@ if __name__ == "__main__":
     PORTFOLIO2 = np.array([0, 0, 0, 0, 0.1, 0.1, 0.2, 0.2, 0.2, 0.2])
     plot_SBX_distribution(0.2, 0.8, DISTR_IDX, MODE, 1000)
     a, b = SBX_portfolios(PORTFOLIO1, PORTFOLIO2, MODE, DISTR_IDX)
+    print(a, np.sum(a))
+    print(b, np.sum(b))
+    a, b = SBX_more_random(PORTFOLIO1, PORTFOLIO2, MODE, DISTR_IDX)
     print(a, np.sum(a))
     print(b, np.sum(b))
