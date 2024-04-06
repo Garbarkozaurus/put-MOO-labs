@@ -8,12 +8,13 @@ from skforecast.model_selection import backtesting_forecaster
 from skforecast.model_selection import grid_search_forecaster
 import pandas as pd
 from skforecast.utils import save_forecaster
+from skforecast.utils import load_forecaster
 
 import data_loading
 
 if __name__ == "__main__":
-    companies = data_loading.load_all_companies_from_dir("./data/Bundle2/")
-    x = np.array(list(range(201)))
+    companies = data_loading.load_all_companies_from_dir("./data/Bundle3/")
+    x = np.array(list(range(len(companies[0].prices))))
     for c in companies:
         y = c.prices
         forecaster = ForecasterAutoregDirect(
@@ -24,4 +25,10 @@ if __name__ == "__main__":
                     lags = list(range(1, 51))
                 )
         forecaster.fit(pd.Series(y))
-        save_forecaster(forecaster, f"{c.name}_bundle2.joblib")
+        save_forecaster(forecaster, f"{c.name}_bundle3.joblib")
+    # for i, c in enumerate(companies):
+    #     print(f"Processing {i+1}/{len(companies)} - {c.name}")
+    #     forecaster_path = f"./saved_forecasters/{c.name}_bundle3.joblib"
+    #     imported_forecaster = load_forecaster(forecaster_path)
+    #     forecast_path = f"./saved_forecasts/bundle3/{c.name}.csv"
+    #     pd.DataFrame(imported_forecaster.predict(100)).to_csv(forecast_path, sep=',', header=False)
