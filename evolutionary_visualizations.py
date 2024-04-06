@@ -96,6 +96,25 @@ def inverted_generational_distance(
     return np.power(dist_sum, 1/exponent) / len(front_coordinates)
 
 
+def forcefully_extract_pops(members: np.ndarray, pop_size: int) -> np.ndarray:
+    full_pops = len(members) // pop_size
+    num_populations = int(np.ceil(len(members)/pop_size))
+    if num_populations == full_pops:
+        return members.reshape(-1, pop_size, 2)
+    # pops = np.zeros((num_populations, pop_size, 2))
+    pops = [[] for _ in range(num_populations)]
+    start = 0
+    for i in range(full_pops):
+        pops[i] = members[start:start+pop_size]
+        start += pop_size
+    # filler = np.mean(members[start:len(members)], axis=0)  # average x and average y
+    # pops[-1] = [filler for _ in range(pop_size)]
+    # for i, idx in enumerate(range(start, len(members))):
+        # pops[-1][i] = members[idx]
+    pops[-1] = members[start:]
+    return pops
+
+
 def plot_convergence_inverted_gen_distance(
         front_points: np.ndarray[np.float32],
         parameters: dict, generations: list[int],
@@ -109,15 +128,21 @@ def plot_convergence_inverted_gen_distance(
     maxima = []
     color = COLOR_DICT[parameters["population_size"]]
     linestyle = LINESTYLE_DICT[parameters["generations"]]
+    igd_export_path = "igd_points_soft_tournament.txt"
+    fp = open(igd_export_path, "a+")
     for i, g in enumerate(unique_generations):
         indices = np.where(generations==g)
         selected_members = points[indices]
-        selected_members = np.reshape(selected_members, (-1, parameters["population_size"], 2))
+        # selected_members = np.reshape(selected_members, (-1, parameters["population_size"], 2))
+        selected_members = forcefully_extract_pops(selected_members, parameters["population_size"])
         for pop in selected_members:
             distances[i].append(inverted_generational_distance(front_points, pop))
+        if g == np.max(unique_generations):
+            fp.write(f'{parameters["generations"]};{parameters["population_size"]};{",".join([str(x) for x in distances[i]])}\n')
         averages.append(np.mean(distances[i]))
         minima.append(np.min(distances[i]))
         maxima.append(np.max(distances[i]))
+    fp.close()
     averages = np.array(averages)
     minima = np.array(minima)
     maxima = np.array(maxima)
@@ -143,7 +168,8 @@ def export_igd_from_file(
         max_gen = np.max(generations)
         indices = np.where(generations == max_gen)
         selected_members = points[indices]
-        selected_members = np.reshape(selected_members, (-1, parameters["population_size"], 2))
+        selected_members = forcefully_extract_pops(selected_members, parameters["population_size"])
+        # selected_members = np.reshape(selected_members, (-1, parameters["population_size"], 2))
         distances = [0 for _ in range(len(selected_members))]
         for i, pop in enumerate(selected_members):
             distances[i] = inverted_generational_distance(front_points, pop)
@@ -175,9 +201,9 @@ def igd_heatmap_from_file(igd_path: str) -> None:
     for i, mean in enumerate(means):
         row = np.where(s_pops == pop_sizes[i])[0][0]
         column = np.where(s_gens == generations[i])[0][0]
-        grid[row][column] = mean
+        grid[column][row] = mean
         text = f"{mean:.5f}\n({sds[i]:.5f})"
-        plt.text(row, column, text, ha="center", va="center", weight="bold", c="white")
+        plt.text(row, column, text, ha="center", va="center", weight="bold", c="black")
     plt.imshow(grid, cmap="viridis_r")
     plt.yticks(list(range(side_len)), labels=s_pops)
     plt.xticks(list(range(side_len)), labels=s_gens)
